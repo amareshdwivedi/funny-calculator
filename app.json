@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Funny Calculator",
+    "slug": "funny-calculator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B9D"
+    },
+    "android": {
+      "package": "com.funnyapp.calculator",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6B9D"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.funnyapp.calculator",
+      "supportsTablet": true
+    }
+  }
+}

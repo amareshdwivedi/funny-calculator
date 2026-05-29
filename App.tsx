@@ -5,7 +5,7 @@ import {
   SafeAreaView,
   StatusBar,
   TextInput,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
   Platform,
   Text,
 } from 'react-native';
@@ -36,6 +36,8 @@ export default function App() {
   const calc = useCalculator();
   const { play } = useSounds();
   const [emojis, setEmojis] = useState<EmojiItem[]>([]);
+  const [soundOn, setSoundOn] = useState(true);
+  const [animOn, setAnimOn] = useState(true);
   const inputRef = useRef<TextInput>(null);
 
   const spawnEmojis = useCallback((list: string[], x: number, y: number) => {
@@ -102,47 +104,66 @@ export default function App() {
   ];
 
   return (
-    <LinearGradient colors={['#FF6B9D', '#C850C0', '#4158D0']} style={styles.gradient}>
+    <LinearGradient colors={['#7B52D3', '#5535A0', '#3D2280']} style={styles.gradient}>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safe}>
-        <TouchableWithoutFeedback onPress={focusKeyboard}>
-          <View style={styles.root}>
-            {/* Header */}
-            <Text style={styles.title}>🧮 Funny Calc! 🎉</Text>
+        <TouchableOpacity onPress={focusKeyboard} activeOpacity={1} style={styles.root}>
 
-            {/* Display */}
-            <Display
-              value={calc.displayValue}
-              expression={calc.expression}
-              activeOperator={calc.activeOperator}
-              isResult={calc.isResult}
-            />
+          {/* Header */}
+          <Text style={styles.title}>🧮 Funny Calc! 🎉</Text>
 
-            {/* Button pad */}
-            <View style={styles.pad}>
-              {rows.map((row, ri) => (
-                <View key={ri} style={styles.row}>
-                  {row.map(btn => (
-                    <CalcButton
-                      key={btn.label}
-                      label={btn.label}
-                      variant={btn.variant}
-                      wide={btn.wide}
-                      onPress={btn.action}
-                      onEmojiSpawn={spawnEmojis}
-                      onSound={play as (k: SoundKey) => void}
-                    />
-                  ))}
-                </View>
-              ))}
-            </View>
+          {/* Display */}
+          <Display
+            value={calc.displayValue}
+            expression={calc.expression}
+            activeOperator={calc.activeOperator}
+            isResult={calc.isResult}
+            animEnabled={animOn}
+          />
 
-            {/* Keyboard hint */}
-            <Text style={styles.hint}>⌨️ Tap here to use keyboard</Text>
+          {/* Button pad */}
+          <View style={styles.pad}>
+            {rows.map((row, ri) => (
+              <View key={ri} style={styles.row}>
+                {row.map(btn => (
+                  <CalcButton
+                    key={btn.label}
+                    label={btn.label}
+                    variant={btn.variant}
+                    wide={btn.wide}
+                    onPress={btn.action}
+                    onEmojiSpawn={spawnEmojis}
+                    onSound={play as (k: SoundKey) => void}
+                    soundEnabled={soundOn}
+                    animEnabled={animOn}
+                  />
+                ))}
+              </View>
+            ))}
           </View>
-        </TouchableWithoutFeedback>
 
-        {/* Hidden input that captures physical keyboard events */}
+          {/* Keyboard hint */}
+          <Text style={styles.hint}>⌨️ Tap here to use keyboard</Text>
+
+          {/* Sound & Animation toggles */}
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, !soundOn && styles.toggleOff]}
+              onPress={() => setSoundOn(v => !v)}
+            >
+              <Text style={styles.toggleText}>{soundOn ? '🔊 Sound' : '🔇 Sound'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, !animOn && styles.toggleOff]}
+              onPress={() => setAnimOn(v => !v)}
+            >
+              <Text style={styles.toggleText}>{animOn ? '✨ Anim' : '✦ Anim'}</Text>
+            </TouchableOpacity>
+          </View>
+
+        </TouchableOpacity>
+
+        {/* Hidden input for physical keyboard */}
         <TextInput
           ref={inputRef}
           style={styles.hidden}
@@ -154,7 +175,7 @@ export default function App() {
           caretHidden
         />
 
-        {/* Flying emoji overlay (pointer-events: none so it doesn't block buttons) */}
+        {/* Flying emoji overlay */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {emojis.map(e => (
             <FlyingEmoji
@@ -179,15 +200,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
     paddingTop: Platform.OS === 'android' ? 16 : 8,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#fff',
     textAlign: 'center',
     marginBottom: 10,
-    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 4,
   },
@@ -201,10 +222,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   hint: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 10,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  toggleBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  toggleOff: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  toggleText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   hidden: {
     position: 'absolute',

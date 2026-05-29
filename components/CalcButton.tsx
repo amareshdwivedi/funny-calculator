@@ -18,6 +18,8 @@ interface Props {
   onPress: () => void;
   onEmojiSpawn: (emojis: string[], x: number, y: number) => void;
   onSound: (key: SoundKey) => void;
+  soundEnabled: boolean;
+  animEnabled: boolean;
 }
 
 const EMOJIS: Record<string, string[]> = {
@@ -42,14 +44,14 @@ const EMOJIS: Record<string, string[]> = {
 };
 
 const COLORS: Record<ButtonVariant, { bg: string; pressed: string; text: string; shadow: string }> = {
-  number:      { bg: '#FFF59D', pressed: '#FFD54F', text: '#4A148C', shadow: '#F57F17' },
-  operator:    { bg: '#FF8A80', pressed: '#FF1744', text: '#fff',    shadow: '#B71C1C' },
-  equals:      { bg: '#69F0AE', pressed: '#00E676', text: '#1B5E20', shadow: '#2E7D32' },
-  special:     { bg: '#80D8FF', pressed: '#00B0FF', text: '#01579B', shadow: '#0277BD' },
-  'active-op': { bg: '#FF6D00', pressed: '#E65100', text: '#fff',    shadow: '#BF360C' },
+  number:      { bg: '#FFFFFF',  pressed: '#E8E4FF', text: '#3D2C8D', shadow: 'rgba(0,0,0,0.18)' },
+  operator:    { bg: '#FF9500',  pressed: '#E08000', text: '#FFFFFF', shadow: 'rgba(200,100,0,0.35)' },
+  equals:      { bg: '#00C896',  pressed: '#00A87A', text: '#FFFFFF', shadow: 'rgba(0,150,100,0.35)' },
+  special:     { bg: '#A5D6F0',  pressed: '#7EC0E0', text: '#1A3D6E', shadow: 'rgba(0,100,180,0.25)' },
+  'active-op': { bg: '#FF7700',  pressed: '#E06000', text: '#FFFFFF', shadow: 'rgba(180,80,0,0.4)' },
 };
 
-export function CalcButton({ label, variant, wide, onPress, onEmojiSpawn, onSound }: Props) {
+export function CalcButton({ label, variant, wide, onPress, onEmojiSpawn, onSound, soundEnabled, animEnabled }: Props) {
   const viewRef = useRef<View>(null);
   const scale = useRef(new Animated.Value(1)).current;
   const bgAnim = useRef(new Animated.Value(0)).current;
@@ -58,62 +60,54 @@ export function CalcButton({ label, variant, wide, onPress, onEmojiSpawn, onSoun
   const rippleOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (ripple === 0) return;
+    if (ripple === 0 || !animEnabled) return;
     rippleScale.setValue(0);
-    rippleOpacity.setValue(0.55);
+    rippleOpacity.setValue(0.45);
     Animated.parallel([
       Animated.timing(rippleScale, { toValue: 4, duration: 380, useNativeDriver: true }),
       Animated.timing(rippleOpacity, { toValue: 0, duration: 380, useNativeDriver: true }),
     ]).start();
-  }, [ripple]);
+  }, [ripple, animEnabled]);
 
   const handlePress = useCallback(() => {
-    // Haptics
-    if (label === '=') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (label === 'C') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
+    if (soundEnabled) {
+      if (label === '=') onSound('equals');
+      else if (label === 'C') onSound('clear');
+      else if (['+', '-', '×', '÷'].includes(label)) onSound('operator');
+      else if (label >= '0' && label <= '9') onSound(`digit_${label}` as SoundKey);
+      else onSound('digit');
     }
 
-    // Sound
-    if (label === '=') onSound('equals');
-    else if (label === 'C') onSound('clear');
-    else if (['+', '-', '×', '÷'].includes(label)) onSound('operator');
-    else if (label >= '0' && label <= '9') onSound(`digit_${label}` as SoundKey);
-    else onSound('digit');
+    if (animEnabled) {
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 0.82, useNativeDriver: true, speed: 120, bounciness: 0 }),
+        Animated.spring(scale, { toValue: 1.12, useNativeDriver: true, speed: 18, bounciness: 28 }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 10 }),
+      ]).start();
 
-    // Bounce animation
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 0.78, useNativeDriver: true, speed: 120, bounciness: 0 }),
-      Animated.spring(scale, { toValue: 1.18, useNativeDriver: true, speed: 18, bounciness: 30 }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 10 }),
-    ]).start();
+      Animated.sequence([
+        Animated.timing(bgAnim, { toValue: 1, duration: 70, useNativeDriver: false }),
+        Animated.timing(bgAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
+      ]).start();
 
-    // Background flash
-    Animated.sequence([
-      Animated.timing(bgAnim, { toValue: 1, duration: 70, useNativeDriver: false }),
-      Animated.timing(bgAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
-    ]).start();
+      setRipple(r => r + 1);
 
-    // Ripple
-    setRipple(r => r + 1);
-
-    // Flying emojis — measure absolute position
-    viewRef.current?.measureInWindow((x, y, w, h) => {
-      const cx = isFinite(x) && isFinite(w) && w > 0 ? x + w / 2 : 180;
-      const cy = isFinite(y) && isFinite(h) && h > 0 ? y + h / 2 : 400;
-      const pool = EMOJIS[label] ?? ['⭐'];
-      const count = label === '=' ? 6 : label === 'C' ? 3 : 2;
-      const picked = Array.from({ length: count }, () =>
-        pool[Math.floor(Math.random() * pool.length)]
-      );
-      onEmojiSpawn(picked, cx, cy);
-    });
+      viewRef.current?.measureInWindow((x, y, w, h) => {
+        const cx = isFinite(x) && isFinite(w) && w > 0 ? x + w / 2 : 180;
+        const cy = isFinite(y) && isFinite(h) && h > 0 ? y + h / 2 : 400;
+        const pool = EMOJIS[label] ?? ['⭐'];
+        const count = label === '=' ? 6 : label === 'C' ? 3 : 2;
+        const picked = Array.from({ length: count }, () =>
+          pool[Math.floor(Math.random() * pool.length)]
+        );
+        onEmojiSpawn(picked, cx, cy);
+      });
+    }
 
     onPress();
-  }, [label, onPress, onEmojiSpawn, onSound]);
+  }, [label, onPress, onEmojiSpawn, onSound, soundEnabled, animEnabled]);
 
   const c = COLORS[variant] ?? COLORS.number;
 
@@ -124,26 +118,20 @@ export function CalcButton({ label, variant, wide, onPress, onEmojiSpawn, onSoun
 
   return (
     <View ref={viewRef} style={[styles.wrapper, wide && styles.wideWrapper]}>
-      <Animated.View style={[styles.shadow, wide && styles.wideWrapper, { shadowColor: c.shadow, transform: [{ scale }] }]}>
-        <Animated.View
-          style={[styles.button, wide && styles.wideButton, { backgroundColor: bgColor }]}
-        >
-          {/* Ripple ring */}
+      <Animated.View style={[styles.shadow, wide && styles.wideShadow, { shadowColor: c.shadow, transform: [{ scale }] }]}>
+        <Animated.View style={[styles.button, wide && styles.wideButton, { backgroundColor: bgColor }]}>
           <Animated.View
-            style={[
-              styles.ripple,
-              {
-                transform: [{ scale: rippleScale }],
-                opacity: rippleOpacity,
-                backgroundColor: c.pressed,
-              },
-            ]}
+            style={[styles.ripple, wide && styles.wideRipple, {
+              transform: [{ scale: rippleScale }],
+              opacity: rippleOpacity,
+              backgroundColor: c.pressed,
+            }]}
             pointerEvents="none"
           />
           <TouchableOpacity
             style={[styles.touchable, wide && styles.wideTouchable]}
             onPress={handlePress}
-            activeOpacity={1}
+            activeOpacity={0.85}
           >
             <Text style={[styles.label, { color: c.text }]}>{label}</Text>
           </TouchableOpacity>
@@ -153,7 +141,8 @@ export function CalcButton({ label, variant, wide, onPress, onEmojiSpawn, onSoun
   );
 }
 
-const BTN = 74;
+const BTN = 76;
+const RADIUS = 18;
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -167,33 +156,40 @@ const styles = StyleSheet.create({
   shadow: {
     width: BTN,
     height: BTN,
-    borderRadius: BTN / 2,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
+    borderRadius: RADIUS,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
     shadowRadius: 6,
-    elevation: 8,
+    elevation: 6,
+  },
+  wideShadow: {
+    width: BTN * 2 + 10,
+    borderRadius: RADIUS,
   },
   button: {
     flex: 1,
-    borderRadius: BTN / 2,
+    borderRadius: RADIUS,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
   wideButton: {
-    borderRadius: BTN / 2,
+    borderRadius: RADIUS,
   },
   ripple: {
     position: 'absolute',
-    width: BTN * 0.6,
-    height: BTN * 0.6,
-    borderRadius: BTN * 0.3,
+    width: BTN * 0.7,
+    height: BTN * 0.7,
+    borderRadius: RADIUS,
     alignSelf: 'center',
+  },
+  wideRipple: {
+    width: BTN * 1.4,
   },
   touchable: {
     width: BTN,
     height: BTN,
-    borderRadius: BTN / 2,
+    borderRadius: RADIUS,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -201,7 +197,7 @@ const styles = StyleSheet.create({
     width: BTN * 2 + 10,
   },
   label: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '700',
   },
 });

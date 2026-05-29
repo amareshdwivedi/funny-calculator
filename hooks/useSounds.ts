@@ -163,7 +163,7 @@ export function useSounds() {
           await FileSystem.writeAsStringAsync(uri, toBase64(make()), {
             encoding: FileSystem.EncodingType.Base64,
           });
-          const { sound } = await Audio.Sound.createAsync({ uri }, { volume: 0.75 });
+          const { sound } = await Audio.Sound.createAsync({ uri }, { volume: 1.0 });
           if (mounted) pool.current[key] = sound;
         }
       } catch (_) {
